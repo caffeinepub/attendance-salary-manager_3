@@ -12,11 +12,8 @@ import List "mo:core/List";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
-import { migration } "Migration";
 
-// run system module migration on upgrade
-
-(with migration)
+// No migration needed, stable state is already up to date
 actor {
   // Apply authorization
   let accessControlState = AccessControl.initState();
@@ -81,7 +78,7 @@ actor {
     multiplier : Float;
     contractAmount : Float;
     machineExp : Float;
-    bedRate : ?Float;
+    bedRate : ?Float; // Null is empty, otherwise Float
     paperRate : ?Float;
     isSettled : Bool;
     createdAt : Int;
@@ -130,7 +127,7 @@ actor {
     contractId : Nat;
     labourId : Nat;
     columnType : ColumnType;
-    value : Float; // 0, 0.33, 0.66, 1.0
+    value : Float; // columnValue: 0, 0.33, 0.66, 1.0
   };
 
   module Attendance {
@@ -163,7 +160,7 @@ actor {
     name : Text;
   };
 
-  // Data
+  // Stable variables
   let labours = Map.empty<Nat, Labour>();
   let contracts = Map.empty<Nat, Contract>();
   let meshColumns = Map.empty<Nat, MeshColumn>();

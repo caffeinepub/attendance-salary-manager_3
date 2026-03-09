@@ -31,9 +31,11 @@ export type ColumnType = { 'Bed' : null } |
 export interface Contract {
   'id' : bigint,
   'multiplier' : number,
+  'bedRate' : [] | [number],
   'isSettled' : boolean,
   'name' : string,
   'createdAt' : bigint,
+  'paperRate' : [] | [number],
   'machineExp' : number,
   'contractAmount' : number,
 }
@@ -89,6 +91,10 @@ export interface _SERVICE {
   'unsettleContract' : ActorMethod<[bigint], undefined>,
   'updateContract' : ActorMethod<
     [bigint, string, number, number, number],
+    undefined
+  >,
+  'updateContractRates' : ActorMethod<
+    [bigint, [] | [number], [] | [number]],
     undefined
   >,
   'updateLabour' : ActorMethod<

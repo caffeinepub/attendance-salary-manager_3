@@ -24,9 +24,11 @@ export const Advance = IDL.Record({
 export const Contract = IDL.Record({
   'id' : IDL.Nat,
   'multiplier' : IDL.Float64,
+  'bedRate' : IDL.Opt(IDL.Float64),
   'isSettled' : IDL.Bool,
   'name' : IDL.Text,
   'createdAt' : IDL.Int,
+  'paperRate' : IDL.Opt(IDL.Float64),
   'machineExp' : IDL.Float64,
   'contractAmount' : IDL.Float64,
 });
@@ -125,6 +127,11 @@ export const idlService = IDL.Service({
       [],
       [],
     ),
+  'updateContractRates' : IDL.Func(
+      [IDL.Nat, IDL.Opt(IDL.Float64), IDL.Opt(IDL.Float64)],
+      [],
+      [],
+    ),
   'updateLabour' : IDL.Func(
       [IDL.Nat, IDL.Text, IDL.Opt(IDL.Text), IDL.Opt(IDL.Text)],
       [],
@@ -151,9 +158,11 @@ export const idlFactory = ({ IDL }) => {
   const Contract = IDL.Record({
     'id' : IDL.Nat,
     'multiplier' : IDL.Float64,
+    'bedRate' : IDL.Opt(IDL.Float64),
     'isSettled' : IDL.Bool,
     'name' : IDL.Text,
     'createdAt' : IDL.Int,
+    'paperRate' : IDL.Opt(IDL.Float64),
     'machineExp' : IDL.Float64,
     'contractAmount' : IDL.Float64,
   });
@@ -253,6 +262,11 @@ export const idlFactory = ({ IDL }) => {
     'unsettleContract' : IDL.Func([IDL.Nat], [], []),
     'updateContract' : IDL.Func(
         [IDL.Nat, IDL.Text, IDL.Float64, IDL.Float64, IDL.Float64],
+        [],
+        [],
+      ),
+    'updateContractRates' : IDL.Func(
+        [IDL.Nat, IDL.Opt(IDL.Float64), IDL.Opt(IDL.Float64)],
         [],
         [],
       ),

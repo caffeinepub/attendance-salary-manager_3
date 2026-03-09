@@ -42,13 +42,13 @@ export type ColumnType = {
 export interface Contract {
     id: bigint;
     multiplier: number;
+    bedRate?: number;
     isSettled: boolean;
     name: string;
     createdAt: bigint;
+    paperRate?: number;
     machineExp: number;
     contractAmount: number;
-    bedRate?: number;
-    paperRate?: number;
 }
 export interface Advance {
     id: bigint;
