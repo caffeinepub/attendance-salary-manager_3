@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { ChevronDown, CreditCard } from "lucide-react";
+import { ChevronDown, CreditCard, LayoutList, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import {
   type Advance,
@@ -190,6 +190,25 @@ function ContractSelector({
 
 // ─── PaymentsTab ─────────────────────────────────────────────────────────────
 
+interface LabourAggregated {
+  labourId: bigint;
+  netSalary: number;
+  totalAdvance: number;
+  finalPayment: number;
+  // breakdown
+  bedSalary: number;
+  paperSalary: number;
+  meshSalaryTotal: number;
+  contractBreakdowns: Array<{
+    contractId: string;
+    contractName: string;
+    bedSalary: number;
+    paperSalary: number;
+    meshSalaryTotal: number;
+    netSalary: number;
+  }>;
+}
+
 export function PaymentsTab() {
   const { data: contracts } = useAllContracts();
   const { data: labours } = useAllLabours();
@@ -201,6 +220,9 @@ export function PaymentsTab() {
   const [contractDataMap, setContractDataMap] = useState<
     Map<string, ContractData>
   >(new Map());
+
+  // Breakdown toggle
+  const [showBreakdown, setShowBreakdown] = useState(false);
 
   const allContracts = contracts ?? [];
   const labourList = labours ?? [];
@@ -247,16 +269,14 @@ export function PaymentsTab() {
   );
 
   // ── Aggregate per labour ──────────────────────────────────────────────────
-  interface LabourAggregated {
-    labourId: bigint;
-    netSalary: number;
-    totalAdvance: number;
-    finalPayment: number;
-  }
 
   const aggregated: LabourAggregated[] = labourList.map((labour) => {
     let netSalary = 0;
     let totalAdvance = 0;
+    let bedSalary = 0;
+    let paperSalary = 0;
+    let meshSalaryTotal = 0;
+    const contractBreakdowns: LabourAggregated["contractBreakdowns"] = [];
 
     for (const idStr of selectedIdArray) {
       const cd = contractDataMap.get(idStr);
@@ -274,8 +294,27 @@ export function PaymentsTab() {
       );
 
       const labourSalary = salaries.find((s) => s.labourId === labour.id);
-      netSalary += labourSalary?.netSalary ?? 0;
+      const contractNetSalary = labourSalary?.netSalary ?? 0;
+      const contractBedSalary = labourSalary?.bedSalary ?? 0;
+      const contractPaperSalary = labourSalary?.paperSalary ?? 0;
+      const contractMeshSalary = labourSalary
+        ? Object.values(labourSalary.meshSalaries).reduce((s, v) => s + v, 0)
+        : 0;
+
+      netSalary += contractNetSalary;
+      bedSalary += contractBedSalary;
+      paperSalary += contractPaperSalary;
+      meshSalaryTotal += contractMeshSalary;
       totalAdvance += calcTotalAdvancePerLabour(cd.advances, labour.id);
+
+      contractBreakdowns.push({
+        contractId: idStr,
+        contractName: contract.name,
+        bedSalary: contractBedSalary,
+        paperSalary: contractPaperSalary,
+        meshSalaryTotal: contractMeshSalary,
+        netSalary: contractNetSalary,
+      });
     }
 
     return {
@@ -283,14 +322,23 @@ export function PaymentsTab() {
       netSalary,
       totalAdvance,
       finalPayment: netSalary - totalAdvance,
+      bedSalary,
+      paperSalary,
+      meshSalaryTotal,
+      contractBreakdowns,
     };
   });
 
   const totalNetSalary = aggregated.reduce((s, a) => s + a.netSalary, 0);
   const totalAdvances = aggregated.reduce((s, a) => s + a.totalAdvance, 0);
   const totalFinalPayment = totalNetSalary - totalAdvances;
+  const totalBedSalary = aggregated.reduce((s, a) => s + a.bedSalary, 0);
+  const totalPaperSalary = aggregated.reduce((s, a) => s + a.paperSalary, 0);
+  const totalMeshSalary = aggregated.reduce((s, a) => s + a.meshSalaryTotal, 0);
 
   const hasSelection = selectedIds.size > 0;
+  // Number of columns changes based on breakdown toggle
+  const colSpanEmpty = showBreakdown ? 8 : 5;
 
   return (
     <div className="space-y-6">
@@ -312,7 +360,7 @@ export function PaymentsTab() {
         </p>
       </div>
 
-      {/* Multi-contract selector */}
+      {/* Multi-contract selector + breakdown toggle */}
       <div className="flex items-start gap-3 flex-wrap">
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Contracts</span>
@@ -324,6 +372,34 @@ export function PaymentsTab() {
             onDeselectAll={handleDeselectAll}
           />
         </div>
+
+        {/* Breakdown toggle — only shown when data is loaded */}
+        {hasSelection && !anyLoading && (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Options</span>
+            <Button
+              data-ocid="payments.breakdown.toggle"
+              variant={showBreakdown ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowBreakdown((prev) => !prev)}
+              className={`gap-2 h-10 ${
+                showBreakdown ? "bg-primary text-primary-foreground" : ""
+              }`}
+            >
+              {showBreakdown ? (
+                <>
+                  <X className="w-4 h-4" />
+                  Hide Breakdown
+                </>
+              ) : (
+                <>
+                  <LayoutList className="w-4 h-4" />
+                  Show Breakdown
+                </>
+              )}
+            </Button>
+          </div>
+        )}
 
         {/* Selected contract badges */}
         {selectedIds.size > 0 && (
@@ -428,12 +504,36 @@ export function PaymentsTab() {
 
           <Separator />
 
+          {/* Breakdown info banner */}
+          {showBreakdown && (
+            <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm text-primary">
+              <LayoutList className="w-4 h-4 shrink-0" />
+              <span>
+                <strong>Salary Breakdown</strong> — showing Bed, Paper, and Mesh
+                salary columns for each labour.
+              </span>
+            </div>
+          )}
+
           <div className="rounded-xl border border-border overflow-hidden shadow-sm">
             <Table data-ocid="payments.table">
               <TableHeader>
                 <TableRow className="bg-muted/60">
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Labour</TableHead>
+                  {showBreakdown && (
+                    <>
+                      <TableHead className="text-right text-blue-600">
+                        Bed Salary
+                      </TableHead>
+                      <TableHead className="text-right text-green-600">
+                        Paper Salary
+                      </TableHead>
+                      <TableHead className="text-right text-orange-600">
+                        Mesh Salary
+                      </TableHead>
+                    </>
+                  )}
                   <TableHead className="text-right">Net Salary</TableHead>
                   <TableHead className="text-right">Total Advance</TableHead>
                   <TableHead className="text-right">Final Payment</TableHead>
@@ -443,7 +543,7 @@ export function PaymentsTab() {
                 {labourList.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={5}
+                      colSpan={colSpanEmpty}
                       className="text-center py-10 text-muted-foreground"
                     >
                       No labours found. Add labours from the Labours tab.
@@ -469,6 +569,19 @@ export function PaymentsTab() {
                       <TableCell className="font-medium">
                         {labour.name}
                       </TableCell>
+                      {showBreakdown && (
+                        <>
+                          <TableCell className="text-right text-blue-700">
+                            {formatCurrency(agg?.bedSalary ?? 0)}
+                          </TableCell>
+                          <TableCell className="text-right text-green-700">
+                            {formatCurrency(agg?.paperSalary ?? 0)}
+                          </TableCell>
+                          <TableCell className="text-right text-orange-700">
+                            {formatCurrency(agg?.meshSalaryTotal ?? 0)}
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(netSalary)}
                       </TableCell>
@@ -514,6 +627,19 @@ export function PaymentsTab() {
                         </span>
                       )}
                     </TableCell>
+                    {showBreakdown && (
+                      <>
+                        <TableCell className="text-right text-blue-700">
+                          {formatCurrency(totalBedSalary)}
+                        </TableCell>
+                        <TableCell className="text-right text-green-700">
+                          {formatCurrency(totalPaperSalary)}
+                        </TableCell>
+                        <TableCell className="text-right text-orange-700">
+                          {formatCurrency(totalMeshSalary)}
+                        </TableCell>
+                      </>
+                    )}
                     <TableCell className="text-right">
                       {formatCurrency(totalNetSalary)}
                     </TableCell>

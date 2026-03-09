@@ -78,7 +78,13 @@ export function ContractDetailView({
   const [editMode, setEditMode] = useState(false);
   const { isGuest } = useUserRole();
 
-  const isLoading = loadingDetails || loadingLabours || loadingAttendance;
+  // Only show full skeleton on initial load (when we have no data yet).
+  // Background refetches (e.g. after saving attendance) should NOT unmount
+  // the component — that would reset editMode to false.
+  const isInitialLoading =
+    (loadingDetails && !details) ||
+    (loadingLabours && !labours) ||
+    (loadingAttendance && !attendance);
 
   const contract = details?.contract;
   const meshColumns = details?.meshColumns ?? [];
@@ -177,7 +183,7 @@ export function ContractDetailView({
   // Determine whether attendance cells should be editable
   const canEdit = !isGuest && editMode;
 
-  if (isLoading) {
+  if (isInitialLoading) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-10 w-40" />
