@@ -10,6 +10,7 @@ import {
   Eye,
   HardHat,
   Loader2,
+  Lock,
   LogIn,
   LogOut,
   Settings,
@@ -37,37 +38,12 @@ const NAV_ITEMS: { id: Tab; label: string; icon: typeof HardHat }[] = [
 ];
 
 function LoginScreen() {
-  const { hasCredentials, setupCredentials, login, enterGuestMode } = useAuth();
-
-  // Setup form state
-  const [setupUsername, setSetupUsername] = useState("");
-  const [setupPassword, setSetupPassword] = useState("");
-  const [setupConfirm, setSetupConfirm] = useState("");
-  const [setupError, setSetupError] = useState("");
+  const { login, enterGuestMode } = useAuth();
 
   // Login form state
   const [loginUsername, setLoginUsername] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState("");
-
-  function handleSetup(e: React.FormEvent) {
-    e.preventDefault();
-    setSetupError("");
-    if (!setupUsername.trim()) {
-      setSetupError("Username is required.");
-      return;
-    }
-    if (setupPassword.length < 4) {
-      setSetupError("Password must be at least 4 characters.");
-      return;
-    }
-    if (setupPassword !== setupConfirm) {
-      setSetupError("Passwords do not match.");
-      return;
-    }
-    setupCredentials(setupUsername, setupPassword);
-    login(setupUsername, setupPassword);
-  }
 
   function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -124,186 +100,86 @@ function LoginScreen() {
 
             {/* Admin section */}
             <div className="space-y-3">
-              {!hasCredentials ? (
-                /* ── Create Admin Account ── */
-                <div className="rounded-xl border border-amber/30 bg-amber/5 p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-amber flex items-center justify-center shrink-0 mt-0.5">
-                      <Settings className="w-4.5 h-4.5 text-yellow-950" />
+              {/* ── Admin Login ── */}
+              <div className="rounded-xl border border-amber/30 bg-amber/5 p-4 space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-amber flex items-center justify-center shrink-0 mt-0.5">
+                    <Settings className="w-4.5 h-4.5 text-yellow-950" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-foreground text-sm">
+                        Admin Login
+                      </span>
+                      <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber/20 text-amber-900 border border-amber/40 hover:bg-amber/20">
+                        Full Access
+                      </Badge>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground text-sm">
-                          Create Admin Account
-                        </span>
-                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber/20 text-amber-900 border border-amber/40 hover:bg-amber/20">
-                          First Time Setup
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                        Set up your admin credentials to manage this app
-                      </p>
-                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                      Create, edit, and delete contracts, labours, attendance
+                      &amp; advances
+                    </p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleLogin} className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="login-username"
+                      className="text-xs text-foreground font-medium"
+                    >
+                      Username
+                    </Label>
+                    <Input
+                      id="login-username"
+                      data-ocid="login.admin.input"
+                      type="text"
+                      autoComplete="username"
+                      placeholder="Enter username"
+                      value={loginUsername}
+                      onChange={(e) => setLoginUsername(e.target.value)}
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label
+                      htmlFor="login-password"
+                      className="text-xs text-foreground font-medium"
+                    >
+                      Password
+                    </Label>
+                    <Input
+                      id="login-password"
+                      data-ocid="login.admin.textarea"
+                      type="password"
+                      autoComplete="current-password"
+                      placeholder="Enter password"
+                      value={loginPassword}
+                      onChange={(e) => setLoginPassword(e.target.value)}
+                      className="h-9 text-sm"
+                    />
                   </div>
 
-                  <form onSubmit={handleSetup} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="setup-username"
-                        className="text-xs text-foreground font-medium"
-                      >
-                        Username
-                      </Label>
-                      <Input
-                        id="setup-username"
-                        data-ocid="login.setup.username.input"
-                        type="text"
-                        autoComplete="username"
-                        placeholder="Enter username"
-                        value={setupUsername}
-                        onChange={(e) => setSetupUsername(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="setup-password"
-                        className="text-xs text-foreground font-medium"
-                      >
-                        Password
-                      </Label>
-                      <Input
-                        id="setup-password"
-                        data-ocid="login.setup.password.input"
-                        type="password"
-                        autoComplete="new-password"
-                        placeholder="Enter password"
-                        value={setupPassword}
-                        onChange={(e) => setSetupPassword(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="setup-confirm"
-                        className="text-xs text-foreground font-medium"
-                      >
-                        Confirm Password
-                      </Label>
-                      <Input
-                        id="setup-confirm"
-                        data-ocid="login.setup.confirm_password.input"
-                        type="password"
-                        autoComplete="new-password"
-                        placeholder="Re-enter password"
-                        value={setupConfirm}
-                        onChange={(e) => setSetupConfirm(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-
-                    {setupError && (
-                      <div
-                        data-ocid="login.setup.error_state"
-                        className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        {setupError}
-                      </div>
-                    )}
-
-                    <Button
-                      data-ocid="login.setup.submit_button"
-                      type="submit"
-                      className="w-full bg-amber hover:bg-amber/90 text-yellow-950 font-semibold py-2.5 rounded-lg text-sm transition-all shadow-sm hover:shadow-md"
+                  {loginError && (
+                    <div
+                      data-ocid="login.admin.error_state"
+                      className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
                     >
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Create Account
-                    </Button>
-                  </form>
-                </div>
-              ) : (
-                /* ── Admin Login ── */
-                <div className="rounded-xl border border-amber/30 bg-amber/5 p-4 space-y-3">
-                  <div className="flex items-start gap-3">
-                    <div className="w-9 h-9 rounded-lg bg-amber flex items-center justify-center shrink-0 mt-0.5">
-                      <Settings className="w-4.5 h-4.5 text-yellow-950" />
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      {loginError}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-semibold text-foreground text-sm">
-                          Admin Login
-                        </span>
-                        <Badge className="text-[10px] px-1.5 py-0 h-4 bg-amber/20 text-amber-900 border border-amber/40 hover:bg-amber/20">
-                          Full Access
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                        Create, edit, and delete contracts, labours, attendance
-                        & advances
-                      </p>
-                    </div>
-                  </div>
+                  )}
 
-                  <form onSubmit={handleLogin} className="space-y-3">
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="login-username"
-                        className="text-xs text-foreground font-medium"
-                      >
-                        Username
-                      </Label>
-                      <Input
-                        id="login-username"
-                        data-ocid="login.admin.username.input"
-                        type="text"
-                        autoComplete="username"
-                        placeholder="Enter username"
-                        value={loginUsername}
-                        onChange={(e) => setLoginUsername(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label
-                        htmlFor="login-password"
-                        className="text-xs text-foreground font-medium"
-                      >
-                        Password
-                      </Label>
-                      <Input
-                        id="login-password"
-                        data-ocid="login.admin.password.input"
-                        type="password"
-                        autoComplete="current-password"
-                        placeholder="Enter password"
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        className="h-9 text-sm"
-                      />
-                    </div>
-
-                    {loginError && (
-                      <div
-                        data-ocid="login.admin.error_state"
-                        className="flex items-center gap-2 text-destructive text-xs bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2"
-                      >
-                        <AlertCircle className="w-3.5 h-3.5 shrink-0" />
-                        {loginError}
-                      </div>
-                    )}
-
-                    <Button
-                      data-ocid="login.admin.primary_button"
-                      type="submit"
-                      className="w-full bg-amber hover:bg-amber/90 text-yellow-950 font-semibold py-2.5 rounded-lg text-sm transition-all shadow-sm hover:shadow-md"
-                    >
-                      <LogIn className="w-4 h-4 mr-2" />
-                      Sign In
-                    </Button>
-                  </form>
-                </div>
-              )}
+                  <Button
+                    data-ocid="login.admin.primary_button"
+                    type="submit"
+                    className="w-full bg-amber hover:bg-amber/90 text-yellow-950 font-semibold py-2.5 rounded-lg text-sm transition-all shadow-sm hover:shadow-md"
+                  >
+                    <LogIn className="w-4 h-4 mr-2" />
+                    Sign In
+                  </Button>
+                </form>
+              </div>
 
               {/* Divider */}
               <div className="flex items-center gap-3">

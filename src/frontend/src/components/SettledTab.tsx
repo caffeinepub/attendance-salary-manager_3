@@ -19,12 +19,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckSquare, Loader2, RotateCcw } from "lucide-react";
+import { CheckSquare, Loader2, RotateCcw, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
   type Contract,
   useAllContracts,
+  useDeleteContract,
   useUnsettleContract,
 } from "../hooks/useQueries";
 import { useUserRole } from "../hooks/useUserRole";
@@ -33,7 +34,9 @@ import { calcContractAmounts, formatCurrency } from "../utils/calculations";
 export function SettledTab() {
   const { data: contracts, isLoading } = useAllContracts();
   const unsettleContract = useUnsettleContract();
+  const deleteContract = useDeleteContract();
   const [unsettleTarget, setUnsettleTarget] = useState<Contract | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<Contract | null>(null);
   const { isGuest } = useUserRole();
 
   const settledContracts = contracts?.filter((c) => c.isSettled) ?? [];
@@ -46,6 +49,17 @@ export function SettledTab() {
       setUnsettleTarget(null);
     } catch {
       toast.error("Failed to unsettle contract");
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    try {
+      await deleteContract.mutateAsync(deleteTarget.id);
+      toast.success(`${deleteTarget.name} permanently deleted`);
+      setDeleteTarget(null);
+    } catch {
+      toast.error("Failed to delete contract");
     }
   }
 
@@ -143,15 +157,27 @@ export function SettledTab() {
                     </TableCell>
                     <TableCell className="text-right">
                       {!isGuest && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="gap-1.5 text-xs"
-                          onClick={() => setUnsettleTarget(contract)}
-                        >
-                          <RotateCcw className="w-3 h-3" />
-                          Reopen
-                        </Button>
+                        <div className="flex items-center justify-end gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1.5 text-xs"
+                            onClick={() => setUnsettleTarget(contract)}
+                          >
+                            <RotateCcw className="w-3 h-3" />
+                            Reopen
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            className="gap-1.5 text-xs"
+                            data-ocid={`settled.delete_button.${idx + 1}`}
+                            onClick={() => setDeleteTarget(contract)}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            Delete
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -177,13 +203,13 @@ export function SettledTab() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel
-              data-ocid="delete.cancel_button"
+              data-ocid="settled.cancel_button"
               onClick={() => setUnsettleTarget(null)}
             >
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              data-ocid="delete.confirm_button"
+              data-ocid="settled.confirm_button"
               className="bg-amber text-yellow-950 hover:bg-amber-dim"
               onClick={handleUnsettle}
               disabled={unsettleContract.isPending}
@@ -192,6 +218,41 @@ export function SettledTab() {
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
               Reopen Contract
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete confirm */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Contract?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete{" "}
+              <strong>{deleteTarget?.name}</strong>? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="settled.delete.cancel_button"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="settled.delete.confirm_button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+              disabled={deleteContract.isPending}
+            >
+              {deleteContract.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Delete Permanently
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

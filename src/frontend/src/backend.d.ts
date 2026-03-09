@@ -69,7 +69,10 @@ export enum UserRole {
 export interface backendInterface {
     assignCallerUserRole(user: Principal, role: UserRole): Promise<void>;
     createAdvanceEntry(contractId: bigint, labourId: bigint, amount: number, note: string | null): Promise<bigint>;
+    updateAdvanceEntry(id: bigint, amount: number, note: string | null): Promise<void>;
+    deleteAdvanceEntry(advanceId: bigint): Promise<void>;
     createContract(name: string, multiplier: number, contractAmount: number, machineExp: number): Promise<bigint>;
+    deleteContract(contractId: bigint): Promise<void>;
     createLabour(name: string, phone: string | null, notes: string | null): Promise<bigint>;
     createMeshColumn(contractId: bigint, name: string): Promise<bigint>;
     deleteLabour(labourId: bigint): Promise<void>;

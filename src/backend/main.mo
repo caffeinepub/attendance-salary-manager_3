@@ -384,6 +384,32 @@ actor {
     };
   };
 
+  public shared ({ caller }) func deleteContract(contractId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete contracts");
+    };
+    if (not contracts.containsKey(contractId)) {
+      Runtime.trap("Contract not found");
+    };
+    // Remove associated attendance, advances, mesh columns
+    for ((id, entry) in attendance.entries()) {
+      if (entry.contractId == contractId) {
+        attendance.remove(id);
+      };
+    };
+    for ((id, entry) in advances.entries()) {
+      if (entry.contractId == contractId) {
+        advances.remove(id);
+      };
+    };
+    for ((id, col) in meshColumns.entries()) {
+      if (col.contractId == contractId) {
+        meshColumns.remove(id);
+      };
+    };
+    contracts.remove(contractId);
+  };
+
   public query ({ caller }) func getAllContracts() : async [Contract] {
     if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
       Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
@@ -541,6 +567,40 @@ actor {
         id;
       };
     };
+  };
+
+  public shared ({ caller }) func updateAdvanceEntry(
+    id : Nat,
+    amount : Float,
+    note : ?Text,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update advances");
+    };
+    switch (advances.get(id)) {
+      case (null) { Runtime.trap("Advance not found") };
+      case (?original) {
+        let updated = {
+          id = original.id;
+          contractId = original.contractId;
+          labourId = original.labourId;
+          amount;
+          note;
+          createdAt = original.createdAt;
+        };
+        advances.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func deleteAdvanceEntry(advanceId : Nat) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete advances");
+    };
+    if (not advances.containsKey(advanceId)) {
+      Runtime.trap("Advance not found");
+    };
+    advances.remove(advanceId);
   };
 
   public query ({ caller }) func getAdvancesForContract(contractId : Nat) : async [Advance] {

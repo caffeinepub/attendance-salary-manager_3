@@ -1,3 +1,13 @@
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -25,14 +35,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Loader2, Plus, Wallet } from "lucide-react";
+import { Loader2, Pencil, Plus, Trash2, Wallet } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
+  type Advance,
   useAdvancesForContract,
   useAllContracts,
   useAllLabours,
   useCreateAdvance,
+  useDeleteAdvance,
+  useUpdateAdvance,
 } from "../hooks/useQueries";
 import { useUserRole } from "../hooks/useUserRole";
 import { formatCurrency, formatDate } from "../utils/calculations";
@@ -48,9 +61,18 @@ export function AdvancesTab() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ labourId: "", amount: "", note: "" });
 
+  // Edit state
+  const [editTarget, setEditTarget] = useState<Advance | null>(null);
+  const [editForm, setEditForm] = useState({ amount: "", note: "" });
+
+  // Delete state
+  const [deleteTarget, setDeleteTarget] = useState<Advance | null>(null);
+
   const { data: advances, isLoading: loadingAdvances } =
     useAdvancesForContract(selectedContractId);
   const createAdvance = useCreateAdvance();
+  const updateAdvance = useUpdateAdvance();
+  const deleteAdvance = useDeleteAdvance();
 
   const activeContracts = contracts?.filter((c) => !c.isSettled) ?? [];
   const selectedContract = activeContracts.find(
@@ -80,6 +102,46 @@ export function AdvancesTab() {
       setDialogOpen(false);
     } catch {
       toast.error("Failed to save advance");
+    }
+  }
+
+  function openEdit(adv: Advance) {
+    setEditTarget(adv);
+    setEditForm({ amount: adv.amount.toString(), note: adv.note ?? "" });
+  }
+
+  async function handleUpdate() {
+    if (!editTarget || !selectedContractId) return;
+    const amount = Number.parseFloat(editForm.amount);
+    if (Number.isNaN(amount) || amount <= 0) {
+      toast.error("Enter a valid amount");
+      return;
+    }
+    try {
+      await updateAdvance.mutateAsync({
+        id: editTarget.id,
+        contractId: selectedContractId,
+        amount,
+        note: editForm.note.trim() || null,
+      });
+      toast.success("Advance updated");
+      setEditTarget(null);
+    } catch {
+      toast.error("Failed to update advance");
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget || !selectedContractId) return;
+    try {
+      await deleteAdvance.mutateAsync({
+        advanceId: deleteTarget.id,
+        contractId: selectedContractId,
+      });
+      toast.success("Advance deleted");
+      setDeleteTarget(null);
+    } catch {
+      toast.error("Failed to delete advance");
     }
   }
 
@@ -220,6 +282,9 @@ export function AdvancesTab() {
                       <TableHead className="text-right">Amount</TableHead>
                       <TableHead>Note</TableHead>
                       <TableHead>Date</TableHead>
+                      {!isGuest && (
+                        <TableHead className="text-center">Actions</TableHead>
+                      )}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -247,6 +312,30 @@ export function AdvancesTab() {
                           <TableCell className="text-muted-foreground text-sm">
                             {formatDate(adv.createdAt)}
                           </TableCell>
+                          {!isGuest && (
+                            <TableCell className="text-center">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 w-7 p-0"
+                                  data-ocid={`advances.edit_button.${idx + 1}`}
+                                  onClick={() => openEdit(adv)}
+                                >
+                                  <Pencil className="w-3 h-3" />
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="destructive"
+                                  className="h-7 w-7 p-0"
+                                  data-ocid={`advances.delete_button.${idx + 1}`}
+                                  onClick={() => setDeleteTarget(adv)}
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          )}
                         </TableRow>
                       );
                     })}
@@ -328,6 +417,104 @@ export function AdvancesTab() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Edit Advance Dialog */}
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(o) => !o && setEditTarget(null)}
+      >
+        <DialogContent data-ocid="advances.edit.dialog" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Edit Advance</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-adv-amount">Amount *</Label>
+              <Input
+                id="edit-adv-amount"
+                data-ocid="advances.edit.amount.input"
+                type="number"
+                min="0"
+                placeholder="e.g. 2000"
+                value={editForm.amount}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, amount: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-adv-note">Note</Label>
+              <Input
+                id="edit-adv-note"
+                data-ocid="advances.edit.note.input"
+                placeholder="Optional note..."
+                value={editForm.note}
+                onChange={(e) =>
+                  setEditForm((f) => ({ ...f, note: e.target.value }))
+                }
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-ocid="advances.edit.cancel_button"
+              onClick={() => setEditTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="advances.edit.save_button"
+              onClick={handleUpdate}
+              disabled={updateAdvance.isPending}
+              className="bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+            >
+              {updateAdvance.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Advance confirm */}
+      <AlertDialog
+        open={deleteTarget !== null}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Advance?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to permanently delete this advance of{" "}
+              <strong>
+                {deleteTarget ? formatCurrency(deleteTarget.amount) : ""}
+              </strong>
+              ? This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              data-ocid="advances.delete.cancel_button"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              data-ocid="advances.delete.confirm_button"
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleDelete}
+              disabled={deleteAdvance.isPending}
+            >
+              {deleteAdvance.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

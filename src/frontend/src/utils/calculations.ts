@@ -154,7 +154,12 @@ export const ATTENDANCE_OPTIONS = [
   { label: "Absent", value: "0" },
   { label: "Present", value: "1" },
   { label: "0.33", value: "0.33" },
+  { label: "0.4", value: "0.4" },
+  { label: "0.5", value: "0.5" },
   { label: "0.66", value: "0.66" },
+  { label: "0.7", value: "0.7" },
+  { label: "0.8", value: "0.8" },
+  { label: "0.9", value: "0.9" },
 ];
 
 export function formatCurrency(amount: number): string {

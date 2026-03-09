@@ -131,6 +131,21 @@ export function useUnsettleContract() {
   });
 }
 
+export function useDeleteContract() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (contractId: bigint) => {
+      if (!actor) throw new Error("No actor");
+      const fullActor = actor as unknown as BackendWithRates;
+      return fullActor.deleteContract(contractId);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+    },
+  });
+}
+
 // ─── Labours ───────────────────────────────────────────────────────────────
 
 export function useAllLabours() {
@@ -300,6 +315,56 @@ export function useCreateAdvance() {
     }) => {
       if (!actor) throw new Error("No actor");
       return actor.createAdvanceEntry(contractId, labourId, amount, note);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["advances", variables.contractId.toString()],
+      });
+    },
+  });
+}
+
+export function useUpdateAdvance() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      contractId: _contractId,
+      amount,
+      note,
+    }: {
+      id: bigint;
+      contractId: bigint;
+      amount: number;
+      note: string | null;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      const fullActor = actor as unknown as BackendWithRates;
+      return fullActor.updateAdvanceEntry(id, amount, note);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ["advances", variables.contractId.toString()],
+      });
+    },
+  });
+}
+
+export function useDeleteAdvance() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      advanceId,
+      contractId: _contractId,
+    }: {
+      advanceId: bigint;
+      contractId: bigint;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      const fullActor = actor as unknown as BackendWithRates;
+      return fullActor.deleteAdvanceEntry(advanceId);
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
