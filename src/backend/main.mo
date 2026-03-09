@@ -120,6 +120,15 @@ actor {
         case (#Mesh(_), _) { #greater };
       };
     };
+
+    public func equal(c1 : ColumnType, c2 : ColumnType) : Bool {
+      switch (c1, c2) {
+        case (#Bed, #Bed) { true };
+        case (#Paper, #Paper) { true };
+        case (#Mesh(id1), #Mesh(id2)) { id1 == id2 };
+        case _ { false };
+      };
+    };
   };
 
   public type Attendance = {
@@ -451,16 +460,45 @@ actor {
       case (null, _) { Runtime.trap("Invalid contract id") };
       case (_, null) { Runtime.trap("Invalid labour id") };
       case (?_, ?_) {
-        let id = Entity.getNextId(attendance);
-        let entry = {
-          id;
-          contractId;
-          labourId;
-          columnType;
-          value;
+        // Check if an entry already exists for this contract/labour/column combination
+        var existingId : ?Nat = null;
+        for ((id, entry) in attendance.entries()) {
+          if (
+            entry.contractId == contractId and
+            entry.labourId == labourId and
+            ColumnType.equal(entry.columnType, columnType)
+          ) {
+            existingId := ?id;
+          };
         };
-        attendance.add(id, entry);
-        id;
+
+        switch (existingId) {
+          case (?id) {
+            // Update existing entry
+            let updated = {
+              id;
+              contractId;
+              labourId;
+              columnType;
+              value;
+            };
+            attendance.add(id, updated);
+            id;
+          };
+          case (null) {
+            // Create new entry
+            let id = Entity.getNextId(attendance);
+            let entry = {
+              id;
+              contractId;
+              labourId;
+              columnType;
+              value;
+            };
+            attendance.add(id, entry);
+            id;
+          };
+        };
       };
     };
   };
