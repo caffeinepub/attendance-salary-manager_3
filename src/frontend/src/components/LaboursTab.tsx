@@ -38,6 +38,7 @@ import {
   useDeleteLabour,
   useUpdateLabour,
 } from "../hooks/useQueries";
+import { useUserRole } from "../hooks/useUserRole";
 
 interface LabourFormData {
   name: string;
@@ -52,6 +53,7 @@ export function LaboursTab() {
   const createLabour = useCreateLabour();
   const updateLabour = useUpdateLabour();
   const deleteLabour = useDeleteLabour();
+  const { isGuest } = useUserRole();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingLabour, setEditingLabour] = useState<Labour | null>(null);
@@ -127,14 +129,16 @@ export function LaboursTab() {
             Manage worker information
           </p>
         </div>
-        <Button
-          data-ocid="labours.add_button"
-          onClick={openAdd}
-          className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
-        >
-          <Plus className="w-4 h-4" />
-          Add Labour
-        </Button>
+        {!isGuest && (
+          <Button
+            data-ocid="labours.add_button"
+            onClick={openAdd}
+            className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            Add Labour
+          </Button>
+        )}
       </div>
 
       {isLoading && (
@@ -159,13 +163,15 @@ export function LaboursTab() {
           <p className="text-sm text-muted-foreground mb-6 max-w-xs">
             Add workers to start tracking attendance and calculating salaries.
           </p>
-          <Button
-            onClick={openAdd}
-            className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            Add Labour
-          </Button>
+          {!isGuest && (
+            <Button
+              onClick={openAdd}
+              className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              Add Labour
+            </Button>
+          )}
         </div>
       )}
 
@@ -199,26 +205,28 @@ export function LaboursTab() {
                     {labour.notes ?? "—"}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button
-                        data-ocid={`labours.edit_button.${idx + 1}`}
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => openEdit(labour)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-ocid={`labours.delete_button.${idx + 1}`}
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(labour)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    {!isGuest && (
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          data-ocid={`labours.edit_button.${idx + 1}`}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(labour)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          data-ocid={`labours.delete_button.${idx + 1}`}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(labour)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}

@@ -39,6 +39,7 @@ import {
   useMarkContractSettled,
   useSetAttendance,
 } from "../hooks/useQueries";
+import { useUserRole } from "../hooks/useUserRole";
 import {
   ATTENDANCE_OPTIONS,
   calcContractAmounts,
@@ -67,6 +68,7 @@ export function ContractDetailView({
   const [settleDialogOpen, setSettleDialogOpen] = useState(false);
   const [meshDialogOpen, setMeshDialogOpen] = useState(false);
   const [meshColumnName, setMeshColumnName] = useState("");
+  const { isGuest } = useUserRole();
 
   const isLoading = loadingDetails || loadingLabours || loadingAttendance;
 
@@ -217,27 +219,29 @@ export function ContractDetailView({
             </div>
           </div>
         </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            data-ocid="contract.mesh.add_button"
-            variant="outline"
-            size="sm"
-            onClick={() => setMeshDialogOpen(true)}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Mesh Column
-          </Button>
-          <Button
-            data-ocid="contract.settle.button"
-            size="sm"
-            className="gap-2 bg-green-600 text-white hover:bg-green-700"
-            onClick={() => setSettleDialogOpen(true)}
-          >
-            <CheckCircle className="w-4 h-4" />
-            Mark as Settled
-          </Button>
-        </div>
+        {!isGuest && (
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              data-ocid="contract.mesh.add_button"
+              variant="outline"
+              size="sm"
+              onClick={() => setMeshDialogOpen(true)}
+              className="gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Add Mesh Column
+            </Button>
+            <Button
+              data-ocid="contract.settle.button"
+              size="sm"
+              className="gap-2 bg-green-600 text-white hover:bg-green-700"
+              onClick={() => setSettleDialogOpen(true)}
+            >
+              <CheckCircle className="w-4 h-4" />
+              Mark as Settled
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Amount summary */}
@@ -347,6 +351,7 @@ export function ContractDetailView({
                           v,
                         )
                       }
+                      readOnly={isGuest}
                     />
                   </td>
                   {/* Paper */}
@@ -363,6 +368,7 @@ export function ContractDetailView({
                           v,
                         )
                       }
+                      readOnly={isGuest}
                     />
                   </td>
                   {/* Mesh columns */}
@@ -380,6 +386,7 @@ export function ContractDetailView({
                             v,
                           )
                         }
+                        readOnly={isGuest}
                       />
                     </td>
                   ))}
@@ -508,15 +515,33 @@ export function ContractDetailView({
 interface AttendanceSelectProps {
   value: string;
   onChange: (v: string) => void;
+  readOnly?: boolean;
 }
 
-function AttendanceSelect({ value, onChange }: AttendanceSelectProps) {
+function AttendanceSelect({
+  value,
+  onChange,
+  readOnly,
+}: AttendanceSelectProps) {
   const colorClass =
     value === "0"
       ? "text-muted-foreground"
       : value === "1"
         ? "text-green-600 font-semibold"
         : "text-amber-600 font-medium";
+
+  if (readOnly) {
+    const label =
+      ATTENDANCE_OPTIONS.find((o) => o.value === value)?.label ?? value;
+    return (
+      <div
+        className={`h-8 text-xs w-full flex items-center justify-center px-2 rounded-md border border-border bg-muted/30 ${colorClass}`}
+        title="Admin access required to edit attendance"
+      >
+        {label}
+      </div>
+    );
+  }
 
   return (
     <Select value={value} onValueChange={onChange}>

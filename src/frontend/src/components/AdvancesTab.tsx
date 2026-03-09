@@ -34,11 +34,13 @@ import {
   useAllLabours,
   useCreateAdvance,
 } from "../hooks/useQueries";
+import { useUserRole } from "../hooks/useUserRole";
 import { formatCurrency, formatDate } from "../utils/calculations";
 
 export function AdvancesTab() {
   const { data: contracts } = useAllContracts();
   const { data: labours } = useAllLabours();
+  const { isGuest } = useUserRole();
 
   const [selectedContractId, setSelectedContractId] = useState<bigint | null>(
     null,
@@ -105,7 +107,7 @@ export function AdvancesTab() {
             Track advance payments per contract
           </p>
         </div>
-        {selectedContractId && (
+        {selectedContractId && !isGuest && (
           <Button
             data-ocid="advances.add_button"
             onClick={() => setDialogOpen(true)}

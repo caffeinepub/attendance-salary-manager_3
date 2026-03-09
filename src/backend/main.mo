@@ -9,8 +9,11 @@ import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Text "mo:core/Text";
 import List "mo:core/List";
+
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+
+// run system module migration on upgrade
 
 actor {
   // Apply authorization
@@ -167,8 +170,8 @@ actor {
   // === USER PROFILE FUNCTIONS ===
 
   public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view profiles");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view profiles");
     };
     userProfiles.get(caller);
   };
@@ -235,8 +238,8 @@ actor {
   };
 
   public query ({ caller }) func getAllLabours() : async [Labour] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view labours");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view labours");
     };
     labours.values().toArray().sort();
   };
@@ -337,15 +340,15 @@ actor {
   };
 
   public query ({ caller }) func getAllContracts() : async [Contract] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
     };
     contracts.values().toArray().sort();
   };
 
   public query ({ caller }) func getContractsBySettlement(isSettled : Bool) : async [Contract] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
     };
     contracts.values().toArray().filter(
       func(c) { c.isSettled == isSettled }
@@ -353,8 +356,8 @@ actor {
   };
 
   public query ({ caller }) func getContractById(contractId : Nat) : async ?Contract {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
     };
     contracts.get(contractId);
   };
@@ -382,8 +385,8 @@ actor {
   };
 
   public query ({ caller }) func getMeshColumnsForContract(contractId : Nat) : async [MeshColumn] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view mesh columns");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view mesh columns");
     };
     meshColumns.values().toArray().filter(
       func(col) { col.contractId == contractId }
@@ -391,8 +394,8 @@ actor {
   };
 
   public query ({ caller }) func getAllMeshColumns() : async [MeshColumn] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view mesh columns");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view mesh columns");
     };
     meshColumns.values().toArray().sort();
   };
@@ -427,8 +430,8 @@ actor {
   };
 
   public query ({ caller }) func getAttendanceForContract(contractId : Nat) : async [Attendance] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view attendance");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view attendance");
     };
     attendance.values().toArray().filter(
       func(entry) { entry.contractId == contractId }
@@ -467,8 +470,8 @@ actor {
   };
 
   public query ({ caller }) func getAdvancesForContract(contractId : Nat) : async [Advance] {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view advances");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view advances");
     };
     advances.values().toArray().filter(
       func(entry) { entry.contractId == contractId }
@@ -478,8 +481,8 @@ actor {
   // === CONTRACT DETAILS ===
 
   public query ({ caller }) func getContractDetails(contractId : Nat) : async ?ContractDetails {
-    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
-      Runtime.trap("Unauthorized: Only users can view contract details");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contract details");
     };
     switch (contracts.get(contractId)) {
       case (null) { null };
@@ -492,4 +495,3 @@ actor {
     };
   };
 };
-

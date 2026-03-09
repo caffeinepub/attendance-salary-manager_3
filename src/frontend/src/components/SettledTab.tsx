@@ -27,12 +27,14 @@ import {
   useAllContracts,
   useUnsettleContract,
 } from "../hooks/useQueries";
+import { useUserRole } from "../hooks/useUserRole";
 import { calcContractAmounts, formatCurrency } from "../utils/calculations";
 
 export function SettledTab() {
   const { data: contracts, isLoading } = useAllContracts();
   const unsettleContract = useUnsettleContract();
   const [unsettleTarget, setUnsettleTarget] = useState<Contract | null>(null);
+  const { isGuest } = useUserRole();
 
   const settledContracts = contracts?.filter((c) => c.isSettled) ?? [];
 
@@ -140,15 +142,17 @@ export function SettledTab() {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 text-xs"
-                        onClick={() => setUnsettleTarget(contract)}
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        Reopen
-                      </Button>
+                      {!isGuest && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="gap-1.5 text-xs"
+                          onClick={() => setUnsettleTarget(contract)}
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          Reopen
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 );

@@ -37,6 +37,7 @@ import {
   useCreateContract,
   useUpdateContract,
 } from "../hooks/useQueries";
+import { useUserRole } from "../hooks/useUserRole";
 import { calcContractAmounts, formatCurrency } from "../utils/calculations";
 import { ContractDetailView } from "./ContractDetailView";
 
@@ -58,6 +59,7 @@ export function ContractsTab() {
   const { data: contracts, isLoading } = useAllContracts();
   const createContract = useCreateContract();
   const updateContract = useUpdateContract();
+  const { isGuest } = useUserRole();
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingContract, setEditingContract] = useState<Contract | null>(null);
@@ -157,14 +159,16 @@ export function ContractsTab() {
             Manage contracts, view attendance and calculate salaries
           </p>
         </div>
-        <Button
-          data-ocid="contracts.add_button"
-          onClick={openAdd}
-          className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
-        >
-          <Plus className="w-4 h-4" />
-          New Contract
-        </Button>
+        {!isGuest && (
+          <Button
+            data-ocid="contracts.add_button"
+            onClick={openAdd}
+            className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+          >
+            <Plus className="w-4 h-4" />
+            New Contract
+          </Button>
+        )}
       </div>
 
       {/* Loading state */}
@@ -192,13 +196,15 @@ export function ContractsTab() {
             Create your first contract to start tracking attendance and
             calculating salaries.
           </p>
-          <Button
-            onClick={openAdd}
-            className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
-          >
-            <Plus className="w-4 h-4" />
-            Add Contract
-          </Button>
+          {!isGuest && (
+            <Button
+              onClick={openAdd}
+              className="gap-2 bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+            >
+              <Plus className="w-4 h-4" />
+              Add Contract
+            </Button>
+          )}
         </div>
       )}
 
@@ -234,26 +240,28 @@ export function ContractsTab() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Button
-                        data-ocid={`contracts.edit_button.${idx + 1}`}
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7"
-                        onClick={() => openEdit(contract)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        data-ocid={`contracts.delete_button.${idx + 1}`}
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteTarget(contract)}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    {!isGuest && (
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          data-ocid={`contracts.edit_button.${idx + 1}`}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => openEdit(contract)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button
+                          data-ocid={`contracts.delete_button.${idx + 1}`}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteTarget(contract)}
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3">
