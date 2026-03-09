@@ -27,14 +27,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  ArrowLeft,
-  CheckCircle,
-  Edit2,
-  Eye,
-  Loader2,
-  Plus,
-} from "lucide-react";
+import { ArrowLeft, CheckCircle, Loader2, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -75,12 +68,9 @@ export function ContractDetailView({
   const [settleDialogOpen, setSettleDialogOpen] = useState(false);
   const [meshDialogOpen, setMeshDialogOpen] = useState(false);
   const [meshColumnName, setMeshColumnName] = useState("");
-  const [editMode, setEditMode] = useState(false);
   const { isGuest } = useUserRole();
 
   // Only show full skeleton on initial load (when we have no data yet).
-  // Background refetches (e.g. after saving attendance) should NOT unmount
-  // the component — that would reset editMode to false.
   const isInitialLoading =
     (loadingDetails && !details) ||
     (loadingLabours && !labours) ||
@@ -180,8 +170,8 @@ export function ContractDetailView({
     return sum + val;
   }, 0);
 
-  // Determine whether attendance cells should be editable
-  const canEdit = !isGuest && editMode;
+  // Admin can always edit; guests are read-only
+  const canEdit = !isGuest;
 
   if (isInitialLoading) {
     return (
@@ -237,32 +227,6 @@ export function ContractDetailView({
           </div>
         </div>
         <div className="flex gap-2 flex-wrap">
-          {/* Modify / View attendance toggle -- only for admin */}
-          {!isGuest && (
-            <Button
-              data-ocid="contract.attendance.toggle"
-              variant={editMode ? "default" : "outline"}
-              size="sm"
-              onClick={() => setEditMode((prev) => !prev)}
-              className={`gap-2 ${
-                editMode
-                  ? "bg-amber text-yellow-950 hover:bg-amber/90 font-semibold"
-                  : ""
-              }`}
-            >
-              {editMode ? (
-                <>
-                  <Eye className="w-4 h-4" />
-                  View Mode
-                </>
-              ) : (
-                <>
-                  <Edit2 className="w-4 h-4" />
-                  Modify Attendance
-                </>
-              )}
-            </Button>
-          )}
           {!isGuest && (
             <Button
               data-ocid="contract.mesh.add_button"
@@ -288,20 +252,6 @@ export function ContractDetailView({
           )}
         </div>
       </div>
-
-      {/* Edit mode notice */}
-      {editMode && !isGuest && (
-        <div
-          data-ocid="contract.attendance.edit.panel"
-          className="flex items-center gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm text-amber-800"
-        >
-          <Edit2 className="w-4 h-4 shrink-0" />
-          <span>
-            <strong>Modify Attendance Mode</strong> — changes save instantly.
-            Click <strong>View Mode</strong> to lock the table.
-          </span>
-        </div>
-      )}
 
       {/* Amount summary */}
       {amounts && (
@@ -391,9 +341,7 @@ export function ContractDetailView({
                 <tr
                   key={labour.id.toString()}
                   data-ocid={`contract.attendance.row.${idx + 1}`}
-                  className={`border-b border-border transition-colors ${
-                    canEdit ? "hover:bg-amber/5" : "hover:bg-muted/30"
-                  }`}
+                  className="border-b border-border transition-colors hover:bg-muted/30"
                 >
                   <td className="px-3 py-2 text-muted-foreground text-center">
                     {idx + 1}
@@ -553,11 +501,11 @@ export function ContractDetailView({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel data-ocid="delete.cancel_button">
+            <AlertDialogCancel data-ocid="settle.cancel_button">
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
-              data-ocid="delete.confirm_button"
+              data-ocid="settle.confirm_button"
               className="bg-green-600 text-white hover:bg-green-700"
               onClick={handleSettle}
               disabled={markSettled.isPending}
@@ -598,7 +546,6 @@ function AttendanceSelect({
     return (
       <div
         className={`h-8 text-xs w-full flex items-center justify-center px-2 rounded-md border border-border bg-muted/30 ${colorClass}`}
-        title="Click 'Modify Attendance' to edit"
       >
         {label}
       </div>

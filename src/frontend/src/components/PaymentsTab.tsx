@@ -38,8 +38,6 @@ import {
 } from "../utils/calculations";
 
 // ─── ContractDataLoader ─────────────────────────────────────────────────────
-// One instance per selected contract. Fetches details, attendance, advances and
-// reports the combined data upward via onData.
 
 interface ContractData {
   contractId: bigint;
@@ -64,7 +62,6 @@ function ContractDataLoader({ contractId, onData }: ContractDataLoaderProps) {
 
   const isLoading = loadingDetails || loadingAttendance || loadingAdvances;
 
-  // Stable callback — only fire when values change
   const stableOnData = useCallback(onData, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -77,7 +74,6 @@ function ContractDataLoader({ contractId, onData }: ContractDataLoaderProps) {
     });
   }, [contractId, details, attendance, advances, isLoading, stableOnData]);
 
-  // Render nothing — purely a data-fetching node
   return null;
 }
 
@@ -121,7 +117,6 @@ function ContractSelector({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">
-        {/* Quick-action row */}
         <div className="flex items-center justify-between px-3 py-2 border-b border-border">
           <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
             Contracts
@@ -188,40 +183,43 @@ function ContractSelector({
   );
 }
 
+// ─── Colour palette for per-contract columns ─────────────────────────────────
+
+const CONTRACT_COLORS = [
+  { header: "text-blue-600", cell: "text-blue-700" },
+  { header: "text-purple-600", cell: "text-purple-700" },
+  { header: "text-teal-600", cell: "text-teal-700" },
+  { header: "text-rose-600", cell: "text-rose-700" },
+  { header: "text-amber-600", cell: "text-amber-700" },
+  { header: "text-indigo-600", cell: "text-indigo-700" },
+  { header: "text-cyan-600", cell: "text-cyan-700" },
+  { header: "text-emerald-600", cell: "text-emerald-700" },
+];
+
 // ─── PaymentsTab ─────────────────────────────────────────────────────────────
+
+interface LabourContractBreakdown {
+  contractId: string;
+  contractName: string;
+  netSalary: number;
+}
 
 interface LabourAggregated {
   labourId: bigint;
   netSalary: number;
   totalAdvance: number;
   finalPayment: number;
-  // breakdown
-  bedSalary: number;
-  paperSalary: number;
-  meshSalaryTotal: number;
-  contractBreakdowns: Array<{
-    contractId: string;
-    contractName: string;
-    bedSalary: number;
-    paperSalary: number;
-    meshSalaryTotal: number;
-    netSalary: number;
-  }>;
+  contractBreakdowns: LabourContractBreakdown[];
 }
 
 export function PaymentsTab() {
   const { data: contracts } = useAllContracts();
   const { data: labours } = useAllLabours();
 
-  // Set of selected contract id strings
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  // Map of contractId string -> ContractData (reported by child loaders)
   const [contractDataMap, setContractDataMap] = useState<
     Map<string, ContractData>
   >(new Map());
-
-  // Breakdown toggle
   const [showBreakdown, setShowBreakdown] = useState(false);
 
   const allContracts = contracts ?? [];
@@ -232,7 +230,6 @@ export function PaymentsTab() {
       const next = new Set(prev);
       if (next.has(idStr)) {
         next.delete(idStr);
-        // Also clean up cached data when deselected
         setContractDataMap((m) => {
           const nm = new Map(m);
           nm.delete(idStr);
@@ -262,21 +259,28 @@ export function PaymentsTab() {
     });
   }, []);
 
-  // Determine loading state: any selected contract still loading
   const selectedIdArray = Array.from(selectedIds);
   const anyLoading = selectedIdArray.some(
     (id) => contractDataMap.get(id)?.isLoading !== false,
   );
+
+  // ── Ordered list of loaded contracts for column rendering ─────────────────
+  // Keep selection order stable so column positions don't shift
+  const loadedContracts: Array<{ idStr: string; name: string }> =
+    selectedIdArray
+      .map((idStr) => {
+        const cd = contractDataMap.get(idStr);
+        if (!cd || cd.isLoading || !cd.details) return null;
+        return { idStr, name: cd.details.contract.name };
+      })
+      .filter(Boolean) as Array<{ idStr: string; name: string }>;
 
   // ── Aggregate per labour ──────────────────────────────────────────────────
 
   const aggregated: LabourAggregated[] = labourList.map((labour) => {
     let netSalary = 0;
     let totalAdvance = 0;
-    let bedSalary = 0;
-    let paperSalary = 0;
-    let meshSalaryTotal = 0;
-    const contractBreakdowns: LabourAggregated["contractBreakdowns"] = [];
+    const contractBreakdowns: LabourContractBreakdown[] = [];
 
     for (const idStr of selectedIdArray) {
       const cd = contractDataMap.get(idStr);
@@ -295,24 +299,13 @@ export function PaymentsTab() {
 
       const labourSalary = salaries.find((s) => s.labourId === labour.id);
       const contractNetSalary = labourSalary?.netSalary ?? 0;
-      const contractBedSalary = labourSalary?.bedSalary ?? 0;
-      const contractPaperSalary = labourSalary?.paperSalary ?? 0;
-      const contractMeshSalary = labourSalary
-        ? Object.values(labourSalary.meshSalaries).reduce((s, v) => s + v, 0)
-        : 0;
 
       netSalary += contractNetSalary;
-      bedSalary += contractBedSalary;
-      paperSalary += contractPaperSalary;
-      meshSalaryTotal += contractMeshSalary;
       totalAdvance += calcTotalAdvancePerLabour(cd.advances, labour.id);
 
       contractBreakdowns.push({
         contractId: idStr,
         contractName: contract.name,
-        bedSalary: contractBedSalary,
-        paperSalary: contractPaperSalary,
-        meshSalaryTotal: contractMeshSalary,
         netSalary: contractNetSalary,
       });
     }
@@ -322,9 +315,6 @@ export function PaymentsTab() {
       netSalary,
       totalAdvance,
       finalPayment: netSalary - totalAdvance,
-      bedSalary,
-      paperSalary,
-      meshSalaryTotal,
       contractBreakdowns,
     };
   });
@@ -332,17 +322,22 @@ export function PaymentsTab() {
   const totalNetSalary = aggregated.reduce((s, a) => s + a.netSalary, 0);
   const totalAdvances = aggregated.reduce((s, a) => s + a.totalAdvance, 0);
   const totalFinalPayment = totalNetSalary - totalAdvances;
-  const totalBedSalary = aggregated.reduce((s, a) => s + a.bedSalary, 0);
-  const totalPaperSalary = aggregated.reduce((s, a) => s + a.paperSalary, 0);
-  const totalMeshSalary = aggregated.reduce((s, a) => s + a.meshSalaryTotal, 0);
+
+  // Per-contract column totals
+  const contractColumnTotals = loadedContracts.map(({ idStr }) =>
+    aggregated.reduce((sum, agg) => {
+      const bd = agg.contractBreakdowns.find((b) => b.contractId === idStr);
+      return sum + (bd?.netSalary ?? 0);
+    }, 0),
+  );
 
   const hasSelection = selectedIds.size > 0;
-  // Number of columns changes based on breakdown toggle
-  const colSpanEmpty = showBreakdown ? 8 : 5;
+  // colSpan for empty rows: slno + labour + (contract columns if breakdown) + net + advance + final
+  const colSpanEmpty = showBreakdown ? 2 + loadedContracts.length + 3 : 5;
 
   return (
     <div className="space-y-6">
-      {/* Hidden data loaders — one per selected contract */}
+      {/* Hidden data loaders */}
       {selectedIdArray.map((idStr) => (
         <ContractDataLoader
           key={idStr}
@@ -360,7 +355,7 @@ export function PaymentsTab() {
         </p>
       </div>
 
-      {/* Multi-contract selector + breakdown toggle */}
+      {/* Selector + breakdown toggle */}
       <div className="flex items-start gap-3 flex-wrap">
         <div className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">Contracts</span>
@@ -373,7 +368,6 @@ export function PaymentsTab() {
           />
         </div>
 
-        {/* Breakdown toggle — only shown when data is loaded */}
         {hasSelection && !anyLoading && (
           <div className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-foreground">Options</span>
@@ -401,7 +395,6 @@ export function PaymentsTab() {
           </div>
         )}
 
-        {/* Selected contract badges */}
         {selectedIds.size > 0 && (
           <div className="flex flex-wrap gap-2 pt-6">
             {Array.from(selectedIds).map((idStr) => {
@@ -426,7 +419,7 @@ export function PaymentsTab() {
         )}
       </div>
 
-      {/* Empty state — no contracts exist */}
+      {/* Empty states */}
       {!hasSelection && allContracts.length === 0 && (
         <div
           data-ocid="payments.empty_state"
@@ -444,7 +437,6 @@ export function PaymentsTab() {
         </div>
       )}
 
-      {/* Empty state — contracts exist but none selected */}
       {!hasSelection && allContracts.length > 0 && (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <CreditCard className="w-10 h-10 text-muted-foreground mb-3" />
@@ -454,7 +446,7 @@ export function PaymentsTab() {
         </div>
       )}
 
-      {/* Loading skeleton */}
+      {/* Loading */}
       {hasSelection && anyLoading && (
         <div data-ocid="payments.loading_state" className="space-y-2">
           {[1, 2, 3, 4].map((i) => (
@@ -466,74 +458,38 @@ export function PaymentsTab() {
       {/* Payments table */}
       {hasSelection && !anyLoading && (
         <>
-          {/* Selected contracts summary strip */}
-          <div className="flex flex-wrap gap-2">
-            {selectedIdArray.map((idStr) => {
-              const cd = contractDataMap.get(idStr);
-              const contract = cd?.details?.contract;
-              if (!contract) return null;
-              const amounts = calcContractAmounts(contract);
-              return (
-                <div
-                  key={idStr}
-                  className="rounded-lg border border-border bg-card px-3 py-2 text-xs space-y-1 min-w-[140px]"
-                >
-                  <div className="font-semibold text-foreground truncate">
-                    {contract.name}
-                  </div>
-                  <div className="flex gap-3 text-muted-foreground">
-                    <span>
-                      Bed:{" "}
-                      <span className="text-foreground font-medium">
-                        {formatCurrency(amounts.bedAmount)}
-                      </span>
-                    </span>
-                  </div>
-                  <div className="flex gap-3 text-muted-foreground">
-                    <span>
-                      Mesh:{" "}
-                      <span className="text-foreground font-medium">
-                        {formatCurrency(Math.max(0, amounts.meshAmount))}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <Separator />
-
           {/* Breakdown info banner */}
           {showBreakdown && (
             <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm text-primary">
               <LayoutList className="w-4 h-4 shrink-0" />
               <span>
-                <strong>Salary Breakdown</strong> — showing Bed, Paper, and Mesh
-                salary columns for each labour.
+                <strong>Salary Breakdown</strong> — net salary per contract is
+                shown as individual columns.
               </span>
             </div>
           )}
 
-          <div className="rounded-xl border border-border overflow-hidden shadow-sm">
+          <Separator />
+
+          <div className="rounded-xl border border-border overflow-hidden shadow-sm overflow-x-auto">
             <Table data-ocid="payments.table">
               <TableHeader>
                 <TableRow className="bg-muted/60">
                   <TableHead className="w-10">#</TableHead>
                   <TableHead>Labour</TableHead>
-                  {showBreakdown && (
-                    <>
-                      <TableHead className="text-right text-blue-600">
-                        Bed Salary
-                      </TableHead>
-                      <TableHead className="text-right text-green-600">
-                        Paper Salary
-                      </TableHead>
-                      <TableHead className="text-right text-orange-600">
-                        Mesh Salary
-                      </TableHead>
-                    </>
-                  )}
+                  {showBreakdown &&
+                    loadedContracts.map(({ idStr, name }, colIdx) => {
+                      const color =
+                        CONTRACT_COLORS[colIdx % CONTRACT_COLORS.length];
+                      return (
+                        <TableHead
+                          key={idStr}
+                          className={`text-right whitespace-nowrap ${color.header}`}
+                        >
+                          {name}
+                        </TableHead>
+                      );
+                    })}
                   <TableHead className="text-right">Net Salary</TableHead>
                   <TableHead className="text-right">Total Advance</TableHead>
                   <TableHead className="text-right">Final Payment</TableHead>
@@ -569,19 +525,22 @@ export function PaymentsTab() {
                       <TableCell className="font-medium">
                         {labour.name}
                       </TableCell>
-                      {showBreakdown && (
-                        <>
-                          <TableCell className="text-right text-blue-700">
-                            {formatCurrency(agg?.bedSalary ?? 0)}
-                          </TableCell>
-                          <TableCell className="text-right text-green-700">
-                            {formatCurrency(agg?.paperSalary ?? 0)}
-                          </TableCell>
-                          <TableCell className="text-right text-orange-700">
-                            {formatCurrency(agg?.meshSalaryTotal ?? 0)}
-                          </TableCell>
-                        </>
-                      )}
+                      {showBreakdown &&
+                        loadedContracts.map(({ idStr }, colIdx) => {
+                          const color =
+                            CONTRACT_COLORS[colIdx % CONTRACT_COLORS.length];
+                          const bd = agg?.contractBreakdowns.find(
+                            (b) => b.contractId === idStr,
+                          );
+                          return (
+                            <TableCell
+                              key={idStr}
+                              className={`text-right font-medium ${color.cell}`}
+                            >
+                              {formatCurrency(bd?.netSalary ?? 0)}
+                            </TableCell>
+                          );
+                        })}
                       <TableCell className="text-right font-semibold">
                         {formatCurrency(netSalary)}
                       </TableCell>
@@ -627,19 +586,19 @@ export function PaymentsTab() {
                         </span>
                       )}
                     </TableCell>
-                    {showBreakdown && (
-                      <>
-                        <TableCell className="text-right text-blue-700">
-                          {formatCurrency(totalBedSalary)}
-                        </TableCell>
-                        <TableCell className="text-right text-green-700">
-                          {formatCurrency(totalPaperSalary)}
-                        </TableCell>
-                        <TableCell className="text-right text-orange-700">
-                          {formatCurrency(totalMeshSalary)}
-                        </TableCell>
-                      </>
-                    )}
+                    {showBreakdown &&
+                      loadedContracts.map(({ idStr }, colIdx) => {
+                        const color =
+                          CONTRACT_COLORS[colIdx % CONTRACT_COLORS.length];
+                        return (
+                          <TableCell
+                            key={idStr}
+                            className={`text-right ${color.cell}`}
+                          >
+                            {formatCurrency(contractColumnTotals[colIdx] ?? 0)}
+                          </TableCell>
+                        );
+                      })}
                     <TableCell className="text-right">
                       {formatCurrency(totalNetSalary)}
                     </TableCell>
