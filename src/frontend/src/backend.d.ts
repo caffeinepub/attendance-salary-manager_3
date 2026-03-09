@@ -47,6 +47,8 @@ export interface Contract {
     createdAt: bigint;
     machineExp: number;
     contractAmount: number;
+    bedRate?: number;
+    paperRate?: number;
 }
 export interface Advance {
     id: bigint;
@@ -76,7 +78,7 @@ export interface backendInterface {
     getAllLabours(): Promise<Array<Labour>>;
     getAllMeshColumns(): Promise<Array<MeshColumn>>;
     getAttendanceForContract(contractId: bigint): Promise<Array<Attendance>>;
-    getCallerUserProfileInternal(): Promise<UserProfile | null>;
+    getCallerUserProfile(): Promise<UserProfile | null>;
     getCallerUserRole(): Promise<UserRole>;
     getContractById(contractId: bigint): Promise<Contract | null>;
     getContractDetails(contractId: bigint): Promise<ContractDetails | null>;
@@ -85,10 +87,10 @@ export interface backendInterface {
     getUserProfile(user: Principal): Promise<UserProfile | null>;
     isCallerAdmin(): Promise<boolean>;
     markContractAsSettled(contractId: bigint): Promise<void>;
-    resetAdmin(userSecret: string): Promise<void>;
     saveCallerUserProfile(profile: UserProfile): Promise<void>;
     setAttendanceEntry(contractId: bigint, labourId: bigint, columnType: ColumnType, value: number): Promise<bigint>;
     unsettleContract(contractId: bigint): Promise<void>;
     updateContract(id: bigint, name: string, multiplier: number, contractAmount: number, machineExp: number): Promise<void>;
+    updateContractRates(id: bigint, bedRate: number | null, paperRate: number | null): Promise<void>;
     updateLabour(id: bigint, name: string, phone: string | null, notes: string | null): Promise<void>;
 }

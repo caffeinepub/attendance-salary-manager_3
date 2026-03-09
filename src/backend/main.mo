@@ -9,18 +9,20 @@ import Order "mo:core/Order";
 import Principal "mo:core/Principal";
 import Text "mo:core/Text";
 import List "mo:core/List";
-import Prim "mo:prim";
 
 import MixinAuthorization "authorization/MixinAuthorization";
 import AccessControl "authorization/access-control";
+import { migration } "Migration";
 
+// run system module migration on upgrade
+
+(with migration)
 actor {
   // Apply authorization
   let accessControlState = AccessControl.initState();
   include MixinAuthorization(accessControlState);
 
-  // === Utility Modules ===
-
+  // Utility module for auto-incrementing entity IDs
   module Entity {
     public func getNextId<T>(entities : Map.Map<Nat, T>) : Nat {
       var maxId = 0;
@@ -31,12 +33,14 @@ actor {
     };
   };
 
+  // Utility module for current timestamp (seconds since Unix epoch)
   module TimeUtils {
     public func currentTimestamp() : Int {
       Time.now() / 1_000_000_000;
     };
   };
 
+  // Utility module for Float lists (sum, fromIter)
   module FloatList {
     public func sum(list : List.List<Float>) : Float {
       var result : Float = 0.0;
@@ -54,8 +58,6 @@ actor {
       list;
     };
   };
-
-  // === Data Types & Structures ===
 
   public type Labour = {
     id : Nat;
@@ -79,16 +81,15 @@ actor {
     multiplier : Float;
     contractAmount : Float;
     machineExp : Float;
+    bedRate : ?Float;
+    paperRate : ?Float;
     isSettled : Bool;
     createdAt : Int;
   };
 
   module Contract {
     public func compare(c1 : Contract, c2 : Contract) : Order.Order {
-      switch (Text.compare(c1.name, c2.name)) {
-        case (#equal) { Nat.compare(c1.id, c2.id) };
-        case (order) { order };
-      };
+      Nat.compare(c1.id, c2.id);
     };
   };
 
@@ -100,10 +101,7 @@ actor {
 
   module MeshColumn {
     public func compare(c1 : MeshColumn, c2 : MeshColumn) : Order.Order {
-      switch (Text.compare(c1.name, c2.name)) {
-        case (#equal) { Nat.compare(c1.id, c2.id) };
-        case (order) { order };
-      };
+      Nat.compare(c1.id, c2.id);
     };
   };
 
@@ -132,12 +130,12 @@ actor {
     contractId : Nat;
     labourId : Nat;
     columnType : ColumnType;
-    value : Float;
+    value : Float; // 0, 0.33, 0.66, 1.0
   };
 
   module Attendance {
-    public func compare(a1 : Attendance, a2 : Attendance) : Order.Order {
-      Nat.compare(a1.id, a2.id);
+    public func compare(att1 : Attendance, att2 : Attendance) : Order.Order {
+      Nat.compare(att1.id, att2.id);
     };
   };
 
@@ -165,7 +163,7 @@ actor {
     name : Text;
   };
 
-  // Data Stores
+  // Data
   let labours = Map.empty<Nat, Labour>();
   let contracts = Map.empty<Nat, Contract>();
   let meshColumns = Map.empty<Nat, MeshColumn>();
@@ -175,7 +173,10 @@ actor {
 
   // === USER PROFILE FUNCTIONS ===
 
-  public query ({ caller }) func getCallerUserProfileInternal() : async ?UserProfile {
+  public query ({ caller }) func getCallerUserProfile() : async ?UserProfile {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view profiles");
+    };
     userProfiles.get(caller);
   };
 
@@ -187,8 +188,8 @@ actor {
   };
 
   public shared ({ caller }) func saveCallerUserProfile(profile : UserProfile) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can save profiles");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can save profiles");
     };
     userProfiles.add(caller, profile);
   };
@@ -196,8 +197,8 @@ actor {
   // === LABOUR FUNCTIONS ===
 
   public shared ({ caller }) func createLabour(name : Text, phone : ?Text, notes : ?Text) : async Nat {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can create labours");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create labours");
     };
 
     let id = Entity.getNextId(labours);
@@ -212,8 +213,8 @@ actor {
   };
 
   public shared ({ caller }) func updateLabour(id : Nat, name : Text, phone : ?Text, notes : ?Text) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can update labours");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update labours");
     };
 
     switch (labours.get(id)) {
@@ -231,8 +232,8 @@ actor {
   };
 
   public shared ({ caller }) func deleteLabour(labourId : Nat) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can delete labours");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can delete labours");
     };
     if (not labours.containsKey(labourId)) {
       Runtime.trap("Labour not found");
@@ -241,6 +242,9 @@ actor {
   };
 
   public query ({ caller }) func getAllLabours() : async [Labour] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view labours");
+    };
     labours.values().toArray().sort();
   };
 
@@ -252,8 +256,8 @@ actor {
     contractAmount : Float,
     machineExp : Float,
   ) : async Nat {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can create contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create contracts");
     };
     let id = Entity.getNextId(contracts);
     let newContract = {
@@ -262,6 +266,8 @@ actor {
       multiplier;
       contractAmount;
       machineExp;
+      bedRate = null;
+      paperRate = null;
       isSettled = false;
       createdAt = TimeUtils.currentTimestamp();
     };
@@ -276,8 +282,8 @@ actor {
     contractAmount : Float,
     machineExp : Float,
   ) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can update contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update contracts");
     };
     switch (contracts.get(id)) {
       case (null) { Runtime.trap("Contract not found") };
@@ -288,6 +294,35 @@ actor {
           multiplier;
           contractAmount;
           machineExp;
+          bedRate = original.bedRate;
+          paperRate = original.paperRate;
+          isSettled = original.isSettled;
+          createdAt = original.createdAt;
+        };
+        contracts.add(id, updated);
+      };
+    };
+  };
+
+  public shared ({ caller }) func updateContractRates(
+    id : Nat,
+    bedRate : ?Float,
+    paperRate : ?Float,
+  ) : async () {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can update contract rates");
+    };
+    switch (contracts.get(id)) {
+      case (null) { Runtime.trap("Contract not found") };
+      case (?original) {
+        let updated = {
+          id = original.id;
+          name = original.name;
+          multiplier = original.multiplier;
+          contractAmount = original.contractAmount;
+          machineExp = original.machineExp;
+          bedRate;
+          paperRate;
           isSettled = original.isSettled;
           createdAt = original.createdAt;
         };
@@ -297,8 +332,8 @@ actor {
   };
 
   public shared ({ caller }) func markContractAsSettled(contractId : Nat) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can mark contracts as settled");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can mark contracts as settled");
     };
     switch (contracts.get(contractId)) {
       case (null) { Runtime.trap("Contract not found") };
@@ -309,6 +344,8 @@ actor {
           multiplier = contract.multiplier;
           contractAmount = contract.contractAmount;
           machineExp = contract.machineExp;
+          bedRate = contract.bedRate;
+          paperRate = contract.paperRate;
           isSettled = true;
           createdAt = contract.createdAt;
         };
@@ -318,8 +355,8 @@ actor {
   };
 
   public shared ({ caller }) func unsettleContract(contractId : Nat) : async () {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can unsettle contracts");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can unsettle contracts");
     };
 
     switch (contracts.get(contractId)) {
@@ -331,6 +368,8 @@ actor {
           multiplier = contract.multiplier;
           contractAmount = contract.contractAmount;
           machineExp = contract.machineExp;
+          bedRate = contract.bedRate;
+          paperRate = contract.paperRate;
           isSettled = false;
           createdAt = contract.createdAt;
         };
@@ -340,24 +379,33 @@ actor {
   };
 
   public query ({ caller }) func getAllContracts() : async [Contract] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
+    };
     contracts.values().toArray().sort();
   };
 
   public query ({ caller }) func getContractsBySettlement(isSettled : Bool) : async [Contract] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
+    };
     contracts.values().toArray().filter(
       func(c) { c.isSettled == isSettled }
     ).sort();
   };
 
   public query ({ caller }) func getContractById(contractId : Nat) : async ?Contract {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contracts");
+    };
     contracts.get(contractId);
   };
 
   // === MESH COLUMNS ===
 
   public shared ({ caller }) func createMeshColumn(contractId : Nat, name : Text) : async Nat {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can create mesh columns");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create mesh columns");
     };
 
     switch (contracts.get(contractId)) {
@@ -376,12 +424,18 @@ actor {
   };
 
   public query ({ caller }) func getMeshColumnsForContract(contractId : Nat) : async [MeshColumn] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view mesh columns");
+    };
     meshColumns.values().toArray().filter(
       func(col) { col.contractId == contractId }
     ).sort();
   };
 
   public query ({ caller }) func getAllMeshColumns() : async [MeshColumn] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view mesh columns");
+    };
     meshColumns.values().toArray().sort();
   };
 
@@ -393,8 +447,8 @@ actor {
     columnType : ColumnType,
     value : Float,
   ) : async Nat {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can set attendance");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can set attendance");
     };
     switch (contracts.get(contractId), labours.get(labourId)) {
       case (null, _) { Runtime.trap("Invalid contract id") };
@@ -415,6 +469,9 @@ actor {
   };
 
   public query ({ caller }) func getAttendanceForContract(contractId : Nat) : async [Attendance] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view attendance");
+    };
     attendance.values().toArray().filter(
       func(entry) { entry.contractId == contractId }
     ).sort();
@@ -428,8 +485,8 @@ actor {
     amount : Float,
     note : ?Text,
   ) : async Nat {
-    if (not AccessControl.isAdmin(accessControlState, caller)) {
-      Runtime.trap("Unauthorized: Only admin can create advances");
+    if (not (AccessControl.hasPermission(accessControlState, caller, #user))) {
+      Runtime.trap("Unauthorized: Only users can create advances");
     };
 
     switch (contracts.get(contractId), labours.get(labourId)) {
@@ -452,6 +509,9 @@ actor {
   };
 
   public query ({ caller }) func getAdvancesForContract(contractId : Nat) : async [Advance] {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view advances");
+    };
     advances.values().toArray().filter(
       func(entry) { entry.contractId == contractId }
     ).sort();
@@ -460,6 +520,9 @@ actor {
   // === CONTRACT DETAILS ===
 
   public query ({ caller }) func getContractDetails(contractId : Nat) : async ?ContractDetails {
+    if (not (AccessControl.hasPermission(accessControlState, caller, #guest))) {
+      Runtime.trap("Unauthorized: Only guests, users, and admins can view contract details");
+    };
     switch (contracts.get(contractId)) {
       case (null) { null };
       case (?contract) {
@@ -467,25 +530,6 @@ actor {
           func(col) { col.contractId == contract.id }
         ).sort();
         ?{ contract; meshColumns = meshCols };
-      };
-    };
-  };
-
-  public shared ({ caller }) func resetAdmin(userSecret : Text) : async () {
-    if (caller.isAnonymous()) { Runtime.trap("Anonymous caller cannot become admin") };
-    switch (Prim.envVar<system>("CAFFEINE_ADMIN_TOKEN")) {
-      case (null) { Runtime.trap("CAFFEINE_ADMIN_TOKEN not set") };
-      case (?adminToken) {
-        if (userSecret != adminToken) { Runtime.trap("Invalid admin token") };
-        // Remove all existing admins by reassigning them as regular users
-        for ((principal, role) in accessControlState.userRoles.entries()) {
-          if (role == #admin) {
-            accessControlState.userRoles.add(principal, #user);
-          };
-        };
-        // Register caller as admin
-        accessControlState.userRoles.add(caller, #admin);
-        accessControlState.adminAssigned := true;
       };
     };
   };

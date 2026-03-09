@@ -72,7 +72,7 @@ export interface _SERVICE {
   'getAllLabours' : ActorMethod<[], Array<Labour>>,
   'getAllMeshColumns' : ActorMethod<[], Array<MeshColumn>>,
   'getAttendanceForContract' : ActorMethod<[bigint], Array<Attendance>>,
-  'getCallerUserProfileInternal' : ActorMethod<[], [] | [UserProfile]>,
+  'getCallerUserProfile' : ActorMethod<[], [] | [UserProfile]>,
   'getCallerUserRole' : ActorMethod<[], UserRole>,
   'getContractById' : ActorMethod<[bigint], [] | [Contract]>,
   'getContractDetails' : ActorMethod<[bigint], [] | [ContractDetails]>,
@@ -81,7 +81,6 @@ export interface _SERVICE {
   'getUserProfile' : ActorMethod<[Principal], [] | [UserProfile]>,
   'isCallerAdmin' : ActorMethod<[], boolean>,
   'markContractAsSettled' : ActorMethod<[bigint], undefined>,
-  'resetAdmin' : ActorMethod<[string], undefined>,
   'saveCallerUserProfile' : ActorMethod<[UserProfile], undefined>,
   'setAttendanceEntry' : ActorMethod<
     [bigint, bigint, ColumnType, number],

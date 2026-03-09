@@ -24,9 +24,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowRight,
   FileText,
+  Info,
   Loader2,
   Pencil,
   Plus,
+  SlidersHorizontal,
   Trash2,
 } from "lucide-react";
 import { useState } from "react";
@@ -36,6 +38,7 @@ import {
   useAllContracts,
   useCreateContract,
   useUpdateContract,
+  useUpdateContractRates,
 } from "../hooks/useQueries";
 import { useUserRole } from "../hooks/useUserRole";
 import { calcContractAmounts, formatCurrency } from "../utils/calculations";
@@ -55,10 +58,16 @@ const EMPTY_FORM: ContractFormData = {
   machineExp: "",
 };
 
+interface AmountsFormData {
+  bedAmount: string;
+  paperAmount: string;
+}
+
 export function ContractsTab() {
   const { data: contracts, isLoading } = useAllContracts();
   const createContract = useCreateContract();
   const updateContract = useUpdateContract();
+  const updateContractRates = useUpdateContractRates();
   const { isGuest } = useUserRole();
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -68,6 +77,14 @@ export function ContractsTab() {
   const [selectedContractId, setSelectedContractId] = useState<bigint | null>(
     null,
   );
+
+  // Edit Amounts state
+  const [amountsDialogOpen, setAmountsDialogOpen] = useState(false);
+  const [amountsContract, setAmountsContract] = useState<Contract | null>(null);
+  const [amountsForm, setAmountsForm] = useState<AmountsFormData>({
+    bedAmount: "",
+    paperAmount: "",
+  });
 
   const activeContracts = contracts?.filter((c) => !c.isSettled) ?? [];
 
@@ -93,6 +110,16 @@ export function ContractsTab() {
       machineExp: String(contract.machineExp),
     });
     setDialogOpen(true);
+  }
+
+  function openEditAmounts(contract: Contract) {
+    const amounts = calcContractAmounts(contract);
+    setAmountsContract(contract);
+    setAmountsForm({
+      bedAmount: String(Math.round(amounts.bedAmount)),
+      paperAmount: String(Math.round(amounts.paperAmount)),
+    });
+    setAmountsDialogOpen(true);
   }
 
   async function handleSubmit() {
@@ -135,6 +162,38 @@ export function ContractsTab() {
       setDialogOpen(false);
     } catch {
       toast.error("Failed to save contract");
+    }
+  }
+
+  async function handleSaveAmounts() {
+    if (!amountsContract) return;
+
+    const bedAmountVal = Number.parseFloat(amountsForm.bedAmount);
+    const paperAmountVal = Number.parseFloat(amountsForm.paperAmount);
+
+    if (Number.isNaN(bedAmountVal) || bedAmountVal < 0) {
+      toast.error("Enter a valid bed amount");
+      return;
+    }
+    if (Number.isNaN(paperAmountVal) || paperAmountVal < 0) {
+      toast.error("Enter a valid paper amount");
+      return;
+    }
+
+    const mult = amountsContract.multiplier;
+    const bedRate = mult > 0 ? bedAmountVal / mult : 0;
+    const paperRate = mult > 0 ? paperAmountVal / mult : 0;
+
+    try {
+      await updateContractRates.mutateAsync({
+        id: amountsContract.id,
+        bedRate,
+        paperRate,
+      });
+      toast.success("Amounts updated");
+      setAmountsDialogOpen(false);
+    } catch {
+      toast.error("Failed to update amounts");
     }
   }
 
@@ -216,6 +275,9 @@ export function ContractsTab() {
         >
           {activeContracts.map((contract, idx) => {
             const amounts = calcContractAmounts(contract);
+            const hasCustomRates =
+              contract.bedRate !== undefined ||
+              contract.paperRate !== undefined;
             return (
               <Card
                 key={contract.id.toString()}
@@ -238,10 +300,26 @@ export function ContractsTab() {
                         <span className="text-xs text-muted-foreground">
                           {formatCurrency(contract.contractAmount)}
                         </span>
+                        {hasCustomRates && (
+                          <Badge variant="secondary" className="text-xs gap-1">
+                            <SlidersHorizontal className="w-2.5 h-2.5" />
+                            Custom
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     {!isGuest && (
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          data-ocid={`contract.edit_amounts_button.${idx + 1}`}
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                          title="Edit Bed & Paper Amount"
+                          onClick={() => openEditAmounts(contract)}
+                        >
+                          <SlidersHorizontal className="w-3.5 h-3.5" />
+                        </Button>
                         <Button
                           data-ocid={`contracts.edit_button.${idx + 1}`}
                           size="icon"
@@ -424,7 +502,78 @@ export function ContractsTab() {
         </DialogContent>
       </Dialog>
 
-      {/* Delete confirm - note: delete contract not in API so we just show a message */}
+      {/* Edit Bed & Paper Amounts Dialog */}
+      <Dialog open={amountsDialogOpen} onOpenChange={setAmountsDialogOpen}>
+        <DialogContent data-ocid="contract.amounts_dialog" className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-display flex items-center gap-2">
+              <SlidersHorizontal className="w-4 h-4 text-blue-600" />
+              Edit Bed &amp; Paper Amount
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="a-bed">Bed Amount</Label>
+              <Input
+                id="a-bed"
+                data-ocid="contract.bed_amount.input"
+                type="number"
+                min="0"
+                placeholder="e.g. 22000"
+                value={amountsForm.bedAmount}
+                onChange={(e) =>
+                  setAmountsForm((f) => ({ ...f, bedAmount: e.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="a-paper">Paper Amount</Label>
+              <Input
+                id="a-paper"
+                data-ocid="contract.paper_amount.input"
+                type="number"
+                min="0"
+                placeholder="e.g. 14000"
+                value={amountsForm.paperAmount}
+                onChange={(e) =>
+                  setAmountsForm((f) => ({
+                    ...f,
+                    paperAmount: e.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="flex items-start gap-2 rounded-lg bg-muted/60 px-3 py-2.5 text-xs text-muted-foreground">
+              <Info className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+              <span>
+                Default: Bed = 11000 × multiplier, Paper = 7000 × multiplier
+              </span>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              data-ocid="contract.amounts_cancel_button"
+              onClick={() => setAmountsDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              data-ocid="contract.amounts_save_button"
+              onClick={handleSaveAmounts}
+              disabled={updateContractRates.isPending}
+              className="bg-amber text-yellow-950 hover:bg-amber-dim font-semibold"
+            >
+              {updateContractRates.isPending && (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              )}
+              Save Amounts
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirm */}
       <AlertDialog
         open={deleteTarget !== null}
         onOpenChange={(o) => !o && setDeleteTarget(null)}

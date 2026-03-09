@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
   Advance,
   Attendance,
+  backendInterface as BackendWithRates,
   ColumnType,
   Contract,
   ContractDetails,
@@ -303,6 +304,33 @@ export function useCreateAdvance() {
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
         queryKey: ["advances", variables.contractId.toString()],
+      });
+    },
+  });
+}
+
+export function useUpdateContractRates() {
+  const { actor } = useActor();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      bedRate,
+      paperRate,
+    }: {
+      id: bigint;
+      bedRate: number | null;
+      paperRate: number | null;
+    }) => {
+      if (!actor) throw new Error("No actor");
+      // Cast to full interface which includes updateContractRates
+      const fullActor = actor as unknown as BackendWithRates;
+      return fullActor.updateContractRates(id, bedRate, paperRate);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["contracts"] });
+      queryClient.invalidateQueries({
+        queryKey: ["contractDetails", variables.id.toString()],
       });
     },
   });

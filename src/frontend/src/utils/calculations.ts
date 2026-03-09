@@ -13,8 +13,8 @@ export interface ContractAmounts {
 }
 
 export function calcContractAmounts(contract: Contract): ContractAmounts {
-  const bedAmount = 11000 * contract.multiplier;
-  const paperAmount = 7000 * contract.multiplier;
+  const bedAmount = (contract.bedRate ?? 11000) * contract.multiplier;
+  const paperAmount = (contract.paperRate ?? 7000) * contract.multiplier;
   const meshAmount =
     contract.contractAmount - bedAmount - paperAmount - contract.machineExp;
   return { bedAmount, paperAmount, meshAmount };
