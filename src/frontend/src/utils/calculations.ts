@@ -69,19 +69,22 @@ export function calcLabourSalaries(
     );
   }, 0);
 
-  // Sum of each mesh column
-  const meshSums: Record<string, number> = {};
-  for (const col of meshColumns) {
-    meshSums[col.id.toString()] = labourIds.reduce((sum, lid) => {
-      return (
-        sum +
-        getAttendanceValue(attendance, lid, { __kind__: "Mesh", Mesh: col.id })
-      );
-    }, 0);
-  }
-
-  const meshAmountPerColumn =
-    meshColumns.length > 0 ? amounts.meshAmount / meshColumns.length : 0;
+  // Total mesh attendance = sum of ALL mesh columns combined (across all labours)
+  // Mesh amount per labour = (labour's total mesh attendance across all columns) / (sum of all mesh attendance) * meshAmount
+  const totalMeshSum = meshColumns.reduce((colSum, col) => {
+    return (
+      colSum +
+      labourIds.reduce((labSum, lid) => {
+        return (
+          labSum +
+          getAttendanceValue(attendance, lid, {
+            __kind__: "Mesh",
+            Mesh: col.id,
+          })
+        );
+      }, 0)
+    );
+  }, 0);
 
   return labourIds.map((labourId) => {
     const bedVal = getAttendanceValue(attendance, labourId, {
@@ -97,17 +100,33 @@ export function calcLabourSalaries(
     const paperSalary =
       paperSum > 0 ? (paperVal / paperSum) * amounts.paperAmount : 0;
 
+    // Sum this labour's attendance across all mesh columns
+    const labourTotalMesh = meshColumns.reduce((sum, col) => {
+      return (
+        sum +
+        getAttendanceValue(attendance, labourId, {
+          __kind__: "Mesh",
+          Mesh: col.id,
+        })
+      );
+    }, 0);
+
+    // Mesh salary = (labour total mesh / total all-labour mesh) * total mesh amount
+    const totalMeshSalary =
+      totalMeshSum > 0
+        ? (labourTotalMesh / totalMeshSum) * amounts.meshAmount
+        : 0;
+
+    // Build per-column mesh salaries proportionally (for display purposes)
     const meshSalaries: Record<string, number> = {};
-    let totalMeshSalary = 0;
     for (const col of meshColumns) {
       const meshVal = getAttendanceValue(attendance, labourId, {
         __kind__: "Mesh",
         Mesh: col.id,
       });
-      const colSum = meshSums[col.id.toString()];
-      const meshSal = colSum > 0 ? (meshVal / colSum) * meshAmountPerColumn : 0;
-      meshSalaries[col.id.toString()] = meshSal;
-      totalMeshSalary += meshSal;
+      // Proportion of this labour's mesh salary that came from this column
+      meshSalaries[col.id.toString()] =
+        labourTotalMesh > 0 ? (meshVal / labourTotalMesh) * totalMeshSalary : 0;
     }
 
     const netSalary = bedSalary + paperSalary + totalMeshSalary;

@@ -27,7 +27,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, CheckCircle, Loader2, Plus } from "lucide-react";
+import {
+  ArrowLeft,
+  CheckCircle,
+  Edit2,
+  Eye,
+  Loader2,
+  Plus,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import {
@@ -68,6 +75,7 @@ export function ContractDetailView({
   const [settleDialogOpen, setSettleDialogOpen] = useState(false);
   const [meshDialogOpen, setMeshDialogOpen] = useState(false);
   const [meshColumnName, setMeshColumnName] = useState("");
+  const [editMode, setEditMode] = useState(false);
   const { isGuest } = useUserRole();
 
   const isLoading = loadingDetails || loadingLabours || loadingAttendance;
@@ -166,6 +174,9 @@ export function ContractDetailView({
     return sum + val;
   }, 0);
 
+  // Determine whether attendance cells should be editable
+  const canEdit = !isGuest && editMode;
+
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -219,8 +230,34 @@ export function ContractDetailView({
             </div>
           </div>
         </div>
-        {!isGuest && (
-          <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap">
+          {/* Modify / View attendance toggle -- only for admin */}
+          {!isGuest && (
+            <Button
+              data-ocid="contract.attendance.toggle"
+              variant={editMode ? "default" : "outline"}
+              size="sm"
+              onClick={() => setEditMode((prev) => !prev)}
+              className={`gap-2 ${
+                editMode
+                  ? "bg-amber text-yellow-950 hover:bg-amber/90 font-semibold"
+                  : ""
+              }`}
+            >
+              {editMode ? (
+                <>
+                  <Eye className="w-4 h-4" />
+                  View Mode
+                </>
+              ) : (
+                <>
+                  <Edit2 className="w-4 h-4" />
+                  Modify Attendance
+                </>
+              )}
+            </Button>
+          )}
+          {!isGuest && (
             <Button
               data-ocid="contract.mesh.add_button"
               variant="outline"
@@ -231,6 +268,8 @@ export function ContractDetailView({
               <Plus className="w-4 h-4" />
               Add Mesh Column
             </Button>
+          )}
+          {!isGuest && (
             <Button
               data-ocid="contract.settle.button"
               size="sm"
@@ -240,9 +279,23 @@ export function ContractDetailView({
               <CheckCircle className="w-4 h-4" />
               Mark as Settled
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
+
+      {/* Edit mode notice */}
+      {editMode && !isGuest && (
+        <div
+          data-ocid="contract.attendance.edit.panel"
+          className="flex items-center gap-2 rounded-lg border border-amber/40 bg-amber/10 px-4 py-2.5 text-sm text-amber-800"
+        >
+          <Edit2 className="w-4 h-4 shrink-0" />
+          <span>
+            <strong>Modify Attendance Mode</strong> — changes save instantly.
+            Click <strong>View Mode</strong> to lock the table.
+          </span>
+        </div>
+      )}
 
       {/* Amount summary */}
       {amounts && (
@@ -331,7 +384,10 @@ export function ContractDetailView({
               return (
                 <tr
                   key={labour.id.toString()}
-                  className="border-b border-border hover:bg-muted/30 transition-colors"
+                  data-ocid={`contract.attendance.row.${idx + 1}`}
+                  className={`border-b border-border transition-colors ${
+                    canEdit ? "hover:bg-amber/5" : "hover:bg-muted/30"
+                  }`}
                 >
                   <td className="px-3 py-2 text-muted-foreground text-center">
                     {idx + 1}
@@ -351,7 +407,7 @@ export function ContractDetailView({
                           v,
                         )
                       }
-                      readOnly={isGuest}
+                      readOnly={!canEdit}
                     />
                   </td>
                   {/* Paper */}
@@ -368,7 +424,7 @@ export function ContractDetailView({
                           v,
                         )
                       }
-                      readOnly={isGuest}
+                      readOnly={!canEdit}
                     />
                   </td>
                   {/* Mesh columns */}
@@ -386,7 +442,7 @@ export function ContractDetailView({
                             v,
                           )
                         }
-                        readOnly={isGuest}
+                        readOnly={!canEdit}
                       />
                     </td>
                   ))}
@@ -536,7 +592,7 @@ function AttendanceSelect({
     return (
       <div
         className={`h-8 text-xs w-full flex items-center justify-center px-2 rounded-md border border-border bg-muted/30 ${colorClass}`}
-        title="Admin access required to edit attendance"
+        title="Click 'Modify Attendance' to edit"
       >
         {label}
       </div>
@@ -545,7 +601,9 @@ function AttendanceSelect({
 
   return (
     <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className={`h-8 text-xs w-full ${colorClass}`}>
+      <SelectTrigger
+        className={`h-8 text-xs w-full ${colorClass} border-amber/50 bg-amber/5`}
+      >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
