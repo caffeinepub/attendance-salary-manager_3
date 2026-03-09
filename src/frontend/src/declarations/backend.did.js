@@ -88,7 +88,11 @@ export const idlService = IDL.Service({
       [IDL.Vec(Attendance)],
       ['query'],
     ),
-  'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+  'getCallerUserProfileInternal' : IDL.Func(
+      [],
+      [IDL.Opt(UserProfile)],
+      ['query'],
+    ),
   'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
   'getContractById' : IDL.Func([IDL.Nat], [IDL.Opt(Contract)], ['query']),
   'getContractDetails' : IDL.Func(
@@ -113,6 +117,7 @@ export const idlService = IDL.Service({
     ),
   'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
   'markContractAsSettled' : IDL.Func([IDL.Nat], [], []),
+  'resetAdmin' : IDL.Func([IDL.Text], [], []),
   'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
   'setAttendanceEntry' : IDL.Func(
       [IDL.Nat, IDL.Nat, ColumnType, IDL.Float64],
@@ -219,7 +224,11 @@ export const idlFactory = ({ IDL }) => {
         [IDL.Vec(Attendance)],
         ['query'],
       ),
-    'getCallerUserProfile' : IDL.Func([], [IDL.Opt(UserProfile)], ['query']),
+    'getCallerUserProfileInternal' : IDL.Func(
+        [],
+        [IDL.Opt(UserProfile)],
+        ['query'],
+      ),
     'getCallerUserRole' : IDL.Func([], [UserRole], ['query']),
     'getContractById' : IDL.Func([IDL.Nat], [IDL.Opt(Contract)], ['query']),
     'getContractDetails' : IDL.Func(
@@ -244,6 +253,7 @@ export const idlFactory = ({ IDL }) => {
       ),
     'isCallerAdmin' : IDL.Func([], [IDL.Bool], ['query']),
     'markContractAsSettled' : IDL.Func([IDL.Nat], [], []),
+    'resetAdmin' : IDL.Func([IDL.Text], [], []),
     'saveCallerUserProfile' : IDL.Func([UserProfile], [], []),
     'setAttendanceEntry' : IDL.Func(
         [IDL.Nat, IDL.Nat, ColumnType, IDL.Float64],
